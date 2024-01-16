@@ -1,87 +1,61 @@
 from time import ctime
-import time
 import os
 import requests, json
+import speech_recognition as sr  # listen import
+import pyttsx3  # speak import
+import openai  # LLM import
 
-#listen import
-import speech_recognition as sr
+# Initialize OpenAI API Key
+openai.api_key = os.getenv("OPEN_AI_API_KEY")
 
-#speak import
-import pyttsx3
-import time
-from pygame import mixer
-from gtts import gTTS
-
-#LLM import
-import openai
-
-#Global Variables
-openai.api_key = OPEN_AI_API_KEY
-
-while True:
-    # Use the listen function from voice_input.py
-    data = listen()
-
-    # If the user says 'exit', break the loop
-    if data.lower() == 'exit':
-        break
-
-    # Send data to GPT-3 and get response
-    response = chat(data)
-
-    # Use the speak function from voice_output.py
-    speak_espeak(response)
-
-"""
-This module captures audio from the microphone and converts it to text using Google's Speech Recognition API
-- listen: .
-"""
 def listen():
-    r = sr.Recognizer()
+    """
+    Captures audio from the microphone and converts it to text using Google's Speech Recognition API.
+    """
+    recognizer = sr.Recognizer()
     with sr.Microphone() as source:
         print("I am listening...")
-        audio = r.listen(source)
-    data = ""
+        audio = recognizer.listen(source)
+
     try:
-        data = r.recognize_google(audio)
-        print("you said: " + data)
+        data = recognizer.recognize_google(audio)
+        print("You said: " + data)
+        return data
     except sr.UnknownValueError:
         print("Google Speech Recognition did not understand audio")
     except sr.RequestError as e:
-        print("Request Failed; {0}".format(e))
-    return data
+        print(f"Request Failed; {e}")
+        return ""
 
-"""
-This module will use the eSpeak library to convert the given text to speech and play the resulting audio.
-"""
 def speak_espeak(text):
+    """
+    Uses the eSpeak library to convert the given text to speech and play the resulting audio.
+    """
     engine = pyttsx3.init()
     voices = engine.getProperty('voices')
-    engine.setProperty('voice', voices[17].id)
+    # Ensure the voice index exists to avoid errors
+    voice_index = 17 if len(voices) > 17 else 0
+    engine.setProperty('voice', voices[voice_index].id)
     engine.say(text)
     engine.runAndWait()
 
-#Consider phasing out this module
-"""
-This module will use Google's Text-to-Speech API to convert the given text to speech and play the resulting audio.
-"""
-def speak_googleTTS(audioString):
-    print(audioString)
-    tts = gTTS(text=audioString, lang='en')
-    tts.save("speech.mp3")
-    mixer.init()
-    mixer.music.load("speech.mp3")
-    mixer.music.play()
-    while mixer.music.get_busy():  # wait for music to finish playing
-        time.sleep(0.1)  # delay for a short period
-
-"""
-This module will use OpenAI's API to generate a response to the given prompt.
-"""
 def chat(prompt):
+    """
+    Uses OpenAI's API to generate a response to the given prompt.
+    """
     response = openai.ChatCompletion.create(
-        model = "gpt-4",
-        messages=[{"role":"user","content":prompt}],
+        model="gpt-4",
+        messages=[{"role": "user", "content": prompt}],
     )
-    response_text = response['choices'][0]['message']['content']
-    return response_text
+    return response['choices'][0]['message']['content']
+
+def main():
+    while True:
+        data = listen()
+        if data.lower() == 'exit':
+            break
+        response = chat(data)
+        speak_espeak(response)
+
+if __name__ == "__main__":
+    main()
